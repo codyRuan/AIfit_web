@@ -11,3 +11,4 @@ class Notification(Document):
     message_title = StringField()
     message_body = StringField()
     datetime = StringField()
+    frm = StringField()

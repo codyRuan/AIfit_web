@@ -78,8 +78,12 @@ def getQstatus(request):
                     if this_part_precedence == 1:
                         qstring = "輪到你了!"
                         lineData = Line.objects.filter(part=partdata,user_id=my_id)[0]
+                        userData = User.objects.filter(myid=my_id)[0]
                         if lineData.notification == False:
-                            postNotificationToSingleUser(my_id, partdata)
+                            title = "Your Turn!!"
+                            body = "dear {name}, is your time to enjoy the {device}!".format(
+                                    name=userData.name, device=partdata)
+                            postNotificationToSingleUser(my_id, title, body, "NCUfit LineUp")
                             lineData.update(notification=True)
                     else :
                         qstring = "已排隊"
