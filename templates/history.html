@@ -1,0 +1,86 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="{% static 'css/bootstrap.min.css' %}">
+    <link rel="stylesheet" href="{% static 'css/index.css' %}">
+    <title>NCU Fit History</title>
+    <style>
+      .dropdown .dropdown-menu .dropdown-item, .dropdown .dropdown-menu .dropdown-item:hover{background-color: #353a40;color:white !important;}
+      .dropdown .dropdown-menu{background-color: #353a40}
+    </style>
+
+  </head>
+  <body>
+
+
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <a class="navbar-brand" href="/oauth/welcome">NCU Fit</a>
+    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarText" aria-controls="navbarText" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarText">
+      <ul class="navbar-nav mr-auto">
+        <li class="nav-item active">
+          <a class="nav-link" href="/oauth/welcome">Home <span class="sr-only">(current)</span></a>
+        </li>
+        <li class="nav-item active">
+          <a class="nav-link" href="/record/history">History</a>
+        </li>
+        <li class="nav-item active">
+          <a class="nav-link" href="/lineup">line up</a>
+        </li>
+      </ul>
+      <span class="navbar-text">
+        <div class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+            {{user_name}}
+          </a>
+          <div class="dropdown-menu" aria-labelledby="navbarDropdown">
+            <a class="dropdown-item" href="#">History</a>
+            <a class="dropdown-item" href="#">Line up</a>
+            <div class="dropdown-divider"></div>
+            <a class="dropdown-item" href="#">logout</a>
+          </div>
+        </div>
+      </span>
+    </div>
+  </nav>
+
+  <div class="d-flex justify-content-start">
+    <h1 style="margin-top:10px; margin-left:20px"> history </h1>
+    <form action="/record/addwork/" style="margin-top:20px; margin-left:20px">
+        <input class="btn btn-primary" style="background-color:black" type="submit" value="addwork" />
+    </form>
+  </div>
+  <form action="." method="post" style="margin-top:10px;margin-left:20px"> {% csrf_token %}
+    Date:
+    <input type="date" name="date" value = {{tmp}}>
+    <input class="btn btn-primary" style="background-color:black" type="submit" value="select">
+  </form>
+  <p style="margin-left:20px"> {{tmp}} </p>
+  <div style="margin-left:20px">
+	   時間   項目   組數  次數 
+      {% for item in items %}
+          <p> {{item.time}} {{ item.item }} {{ item.group}} {{ item.times }} </p>
+      {% endfor %}
+  </div>
+{% if messages %}
+        <script>
+            {% for msg in messages %}
+                alert('{{ msg.message }}');
+                window.location.href = 'https://portal3g.ncu.edu.tw/oauth2/authorization?type=web_server&client_id=%2320200205015015-lZEQOJ3v&redirect_uri=https://ncufit.tk/oauth/callback&response_type=code&scope=identifier+chinese-name+english-name+gender+birthday+personal-id+student-id+academy-records+email+mobile-phone+notification+calendar+bulletin+modal-dialog';
+
+            {% endfor %}
+        </script>
+{% endif %}
+
+    <!-- Optional JavaScript -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js" integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js" integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6" crossorigin="anonymous"></script>
+  </body>
+</html>

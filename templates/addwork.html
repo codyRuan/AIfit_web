@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title></title>
+</head>
+<body>
+<form action="." method="post"> {% csrf_token %}
+    <h2> 新增紀錄 </h2> <hr>
+    項目:<br>
+    <input id="item" type="text" name="item" value="{{ itm }}"><br>
+	組數:<br>
+    <input id="group" type="text" name="group" value="{{ group }}"><br>
+    次數:<br>
+    <input id="times" type="text" name="times" value="{{ tms }}">
+    <input type="submit" value="OK">
+    <!-- django eat name value -->
+</form>
+</body>
+</html>

@@ -1,0 +1,10 @@
+.jumbotron {
+  background-color: black;
+  background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url("https://drive.google.com/file/d/1AJnnUgghZyoDZRfrM4tabC7RJao1ZCz2/view");
+  background-size: cover;
+  color: white;
+  height: 800px;
+}
+.jumbo_text {
+  color: white;
+}

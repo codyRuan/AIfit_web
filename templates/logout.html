@@ -1,0 +1,12 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+{% if messages %}
+        <script>
+            {% for msg in messages %}
+                alert('{{ msg.message }}');
+                window.location.href = 'https://ncufit.tk/home';
+            {% endfor %}
+        </script>
+{% endif %}
