@@ -50,7 +50,8 @@ INSTALLED_APPS = [
     'HCSR04',
     'signup',
     'checklogin',
-    'postimage'
+    'postimage',
+    'counting'
 ]
 
 MIDDLEWARE = [

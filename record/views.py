@@ -36,7 +36,7 @@ def api_history(request):
             for val in new_date_list:              
                 dateData = Item.objects.filter(user_id=my_id,date=val)               
                 for data in dateData:
-                    tempItem.append({"item":data.item, "time":data.time, "group":data.group, "times":data.times})                 
+                    tempItem.append({"item":data.item, "time":data.time, "group":data.group, "times":data.times, "total_time":data.total_time})                 
                 all_item.append({"date":val,"data":deepcopy(tempItem)})
                 tempItem.clear()               
             #json_data.update({"allOfItem":all_item})

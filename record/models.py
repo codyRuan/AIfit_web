@@ -13,3 +13,5 @@ class Item(Document):
     times = StringField()
     date = StringField()
     time = StringField()
+    total_time = StringField()
+    cost = StringField()

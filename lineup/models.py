@@ -9,9 +9,12 @@ class Line(Document):
     meta = {
         'collection': 'lineup'
     }
-    time = DateTimeField(default=pytz.timezone('Asia/Taipei').localize(datetime.datetime.now()))
+    time = DateTimeField(default=datetime.datetime.now())
     user_id = StringField()
     item = StringField()
     precedence = IntField()
     part = StringField()
+    countdown = IntField()
     notification = BooleanField(default=False)
+    gp = StringField()
+    ts = StringField()

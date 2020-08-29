@@ -2,6 +2,7 @@ from django.shortcuts import render, HttpResponseRedirect
 #from django.http import HttpResponse
 from datetime import datetime
 from lineup.models import Line
+from counting.models import Counting
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -11,9 +12,43 @@ from record.models import Item
 from signup.models import User
 from notification.views import postNotificationToSingleUser
 from copy import deepcopy
-# Create your views here.
+import threading
+from time import sleep
 
-partlist=["臥推","肩推"] 
+# Create your views here.
+def trigger(PD,MI):
+    LO = Line.objects.filter(part=PD,user_id=MI)
+    for LOdata in LO:
+        for i in range(10, 0, -1):
+            if Line.objects.filter(part=PD,user_id=MI).first().countdown != -1:
+                LOdata.update(set__countdown=int(i))
+                print(Line.objects.filter(part=PD,user_id=MI).first().countdown)
+                sleep(1)
+        if Line.objects.filter(part=PD,user_id=MI).first().countdown != -1:   
+            for new in Line.objects.filter(part=LOdata.part):
+                if new.precedence > 1:
+                    new.update(set__precedence=new.precedence-1)
+            LOdata.delete()
+            userData = User.objects.filter(myid=MI)[0]
+            title = "Time out!"
+            body = "dear {name}, you have been removed from the {device} ಥ_ಥ!".format(
+                            name=userData.name, device=PD)
+            postNotificationToSingleUser(MI, title, body, "NCUfit LineUp SYS")
+
+    # do something else here.
+def caltime(sec):
+    timeinhms = ""
+    rt = sec
+    if rt >= 3600:
+        timeinhms = timeinhms + str(rt//3600) + "h"
+        rt = rt % 3600
+    if rt >= 60 :
+        timeinhms = timeinhms + str(rt//60) + "m"
+        rt = rt % 60
+    timeinhms += str(rt) + "s"
+    return timeinhms
+
+partlist=["硬舉","機械","臥推","上胸","深蹲","啞鈴"] 
 @api_view(['post', 'GET'])
 def join(request):
     if request.method == 'POST':
@@ -21,17 +56,17 @@ def join(request):
         my_uuid = received_json_data['uuid']
         my_id = received_json_data['user_id']
         this_part = Line.objects.filter(part=received_json_data['part'])
-        part_to_line_up = Line(part=received_json_data['part'],user_id=my_id,precedence=this_part.count()+1)
+        part_to_line_up = Line(part=received_json_data['part'],user_id=my_id,precedence=this_part.count()+1,countdown=-2)
         print(part_to_line_up)
         
         l = User.objects.filter(myid=my_id).count()
         if l != 0:
             latest_uuid = User.objects.filter(myid=my_id)[l-1].uuid                
         if Line.objects.filter(part=received_json_data['part'],user_id=my_id).count() > 0:
-            return Response({"message":"你已經在列隊中"})
+            return Response({"message":"You are already in line"})
         elif User.objects.filter(myid=my_id, uuid=my_uuid).count() > 0 and my_uuid == latest_uuid:
             part_to_line_up.save()
-            return Response({"message":"排隊成功"})
+            return Response({"message":"success"})
     return Response("error")
 @api_view(['post', 'GET'])
 def leave(request):
@@ -46,15 +81,37 @@ def leave(request):
             latest_uuid = User.objects.filter(myid=my_id)[l-1].uuid                            
         if User.objects.filter(myid=my_id, uuid=my_uuid).count() > 0 and my_uuid == latest_uuid and Line.objects.filter(part=received_json_data['part'],user_id=my_id).count() > 0:
             this_part_precedence = 0
+            total_time = 0
             for tp in Line.objects(part=received_json_data['part'],user_id=my_id):
                 this_part_precedence = tp.precedence
+                now = datetime.now()
+                last = tp.time
+                total_time = caltime((now-last).seconds)
             for new in this_part:
                 if new.precedence > this_part_precedence:
                     new.update(set__precedence=new.precedence-1)
-
+             
             Line.objects(part=received_json_data['part'],user_id=my_id).delete()
-            
-            return Response({"message":"結束排隊"})
+            this_training = Counting.objects.filter(part=received_json_data['part'], user_id=my_id,status = 0)
+            total_times = 0
+            total_set = this_training.count()
+            for train in this_training:
+                total_times = total_times + train.times
+            this_training.delete()
+            Counting.objects.filter(part=received_json_data['part']).delete()
+            try:
+                gup = str(total_set)
+                tms = str(total_times)
+                if gup == '0' or tms == '0':
+                    return Response({"message":"finished training"})
+                time = datetime.now().strftime("%H") + ':' + datetime.now().strftime("%M")
+                date = datetime.now().strftime("%Y")+'-'+datetime.now().strftime("%m")+'-'+datetime.now().strftime("%d")
+                saveItem = Item(item=received_json_data['part'], group=gup, times=tms, user_id=my_id, time=time, date=date,total_time=str(total_time))
+                saveItem.save()
+                return Response({"message":"End"})
+            except:
+                pass           
+            return Response({"message":"did not save"})
     return Response("error")
 @api_view(['post', 'GET'])
 def getQstatus(request):
@@ -70,41 +127,78 @@ def getQstatus(request):
             all_item = []
             for partdata in partlist:
                 tmp = Line.objects.filter(part=partdata).count()
-                qstring = "排隊!"
+                qstring = "排隊"
+                countdowntime = -1
                 this_part_precedence = 0
                 for tp in Line.objects(part=partdata,user_id=my_id):
                     this_part_precedence = tp.precedence
                 if Line.objects.filter(part=partdata,user_id=my_id).count() > 0:
                     if this_part_precedence == 1:
-                        qstring = "輪到你了!"
+                        countdowntime = Line.objects.filter(part=partdata,user_id=my_id).first().countdown
+                        qstring = "到你了!"
                         lineData = Line.objects.filter(part=partdata,user_id=my_id)[0]
                         userData = User.objects.filter(myid=my_id)[0]
                         if lineData.notification == False:
+                            thread = threading.Thread(target=trigger, args = (partdata,my_id))
+                            thread.daemon = True
+                            thread.start()
                             title = "Your Turn!!"
                             body = "dear {name}, is your time to enjoy the {device}!".format(
                                     name=userData.name, device=partdata)
-                            postNotificationToSingleUser(my_id, title, body, "NCUfit LineUp")
+                            postNotificationToSingleUser(my_id, title, body, "NCUfit LineUp SYS")
                             lineData.update(notification=True)
                     else :
-                        qstring = "已排隊"
-                all_item.append({"title": partdata,"data": [{ "precedence":this_part_precedence, "item": partdata, "amount": tmp, "user_qstatus":qstring }]})
+                        countdowntime = -1
+                        qstring = "等待{x}人".format(x=this_part_precedence-1)
+                all_item.append({"title": partdata,"data": [{ "precedence":this_part_precedence, "item": partdata, "amount": tmp, "user_qstatus":qstring, "countdown":str(countdowntime) }]})
 
             return Response(all_item)
     return Response("error")
-
-def SelfQueuing(request):
+@api_view(['post', 'GET'])
+def StartWorkout(request):
     if request.method == 'POST':
         received_json_data=json.loads(request.body)
         my_uuid = received_json_data['uuid']
         my_id = received_json_data['user_id']
+        this_part = Line.objects.filter(part=received_json_data['part'])
+        
         l = User.objects.filter(myid=my_id).count()
-        partlist=["臥推","肩推"] 
         if l != 0:
-            latest_uuid = User.objects.filter(myid=my_id)[l-1].uuid
-        if User.objects.filter(myid=my_id, uuid=my_uuid).count() > 0 and my_uuid == latest_uuid:
-            for tp in Line.objects(part=partdata,user_id=my_id):
-                    print(tp.precedence)
-            return Response({"test":"123"})
+            latest_uuid = User.objects.filter(myid=my_id)[l-1].uuid                            
+        if User.objects.filter(myid=my_id, uuid=my_uuid).count() > 0 and my_uuid == latest_uuid and Line.objects.filter(part=received_json_data['part'],user_id=my_id).count() > 0:
+            LO = Line.objects.filter(part=received_json_data['part'],user_id=my_id)
+            for LOdata in LO:
+                LOdata.update(set__countdown=-1)
+                LOdata.update(set__time=datetime.now())
+            print(Line.objects.filter(part=received_json_data['part'],user_id=my_id).first().countdown)
+            return Response({"message":"start"})
+    return Response("error")
+    
+@api_view(['post', 'GET'])
+def GetTimer(request):
+    if request.method == 'POST':
+        received_json_data=json.loads(request.body)
+        my_uuid = received_json_data['uuid']
+        my_id = received_json_data['user_id']
+        
+        l = User.objects.filter(myid=my_id).count()
+        if l != 0:
+            latest_uuid = User.objects.filter(myid=my_id)[l-1].uuid                            
+        if User.objects.filter(myid=my_id, uuid=my_uuid).count() > 0 and my_uuid == latest_uuid and Line.objects.filter(part=received_json_data['part'],user_id=my_id).count() > 0:
+            tmp = Line.objects.filter(part=received_json_data['part'],user_id=my_id).first().countdown
+            return Response({"message":str(tmp)})
+    return Response("error")
+    
+@api_view(['post', 'GET'])
+def forvideo(request):
+    if request.method == 'POST':
+        received_json_data=json.loads(request.body)
+        my_id = received_json_data['user_id']
+        this_part = Line.objects.filter(part=received_json_data['part'])
+        part_to_line_up = Line(part=received_json_data['part'],user_id=my_id,precedence=this_part.count()+1)
+        print(part_to_line_up)
+        part_to_line_up.save()
+        return Response({"message":"success"})
     return Response("error")
 def lineup(request):
     a = len(Line.objects.filter(item='a'))
@@ -115,9 +209,9 @@ def lineup(request):
         a = request.POST.get('line_a', "")
         b = request.POST.get('line_b', "")
         c = request.POST.get('line_c', "")
-        if a == "我要排隊": adddata('a')
-        if b == "我要排隊": adddata('b')
-        if c == "我要排隊": adddata('c')
+        if a == "Q": adddata('a')
+        if b == "Q": adddata('b')
+        if c == "Q": adddata('c')
         a = len(Line.objects.filter(item='a'))
         b = len(Line.objects.filter(item='b'))
         c = len(Line.objects.filter(item='c'))

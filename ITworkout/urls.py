@@ -20,12 +20,15 @@ from django.urls import path
 from django.urls import include
 from django.views.generic import RedirectView
 
+
+    
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('record/', include('record.urls')),
     path('hcsr04/', include('HCSR04.urls')),
     path('home/', include('signup.urls')),
     path('lineup/', include('lineup.urls')),
+    path('counting/', include('counting.urls')),
     path('postimage/', include('postimage.urls')),
     path('checklogin/', include('checklogin.urls')),
     path('oauth/', include('signup.urls')),
