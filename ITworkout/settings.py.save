@@ -35,6 +35,7 @@ ALLOWED_HOSTS = ['ncufit.tk']
 # Application definition
 
 INSTALLED_APPS = [
+    'channels',
     'rest_framework',
     'rest_framework_mongoengine',
     'mongoengine',
@@ -52,7 +53,7 @@ INSTALLED_APPS = [
     'checklogin',
     'postimage',
     'counting',
-    'channels'
+    'websocket'
 ]
 
 MIDDLEWARE = [
@@ -154,4 +155,4 @@ STATICFILES_DIRS = [
     ("js", os.path.join(STATIC_ROOT,'js')),
     ("css", os.path.join(STATIC_ROOT,'css')),
     ("img", os.path.join(STATIC_ROOT,'images')),]
-ASGI_APPLICATION = "ITworkout.routing.application"
+
