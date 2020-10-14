@@ -34,6 +34,7 @@ urlpatterns = [
     path('oauth/', include('signup.urls')),
     path('notification/',include('notification.urls')),
     path('', RedirectView.as_view(url='/home/', permanent=True)),
+    path('chat/', include('chat.urls')),
 ]
 
 urlpatterns += staticfiles_urlpatterns()

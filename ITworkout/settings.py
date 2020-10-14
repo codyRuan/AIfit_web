@@ -52,7 +52,8 @@ INSTALLED_APPS = [
     'checklogin',
     'postimage',
     'counting',
-    'channels'
+    'channels',
+    'chat'
 ]
 
 MIDDLEWARE = [
@@ -155,3 +156,11 @@ STATICFILES_DIRS = [
     ("css", os.path.join(STATIC_ROOT,'css')),
     ("img", os.path.join(STATIC_ROOT,'images')),]
 ASGI_APPLICATION = "ITworkout.routing.application"
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            "hosts": [('140.115.51.179', 6379)],
+        },
+    },
+}
