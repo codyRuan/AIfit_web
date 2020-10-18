@@ -22,43 +22,21 @@ except ImportError:
     import _thread as thread
 import time
 
-#websocket function
-def on_message(ws, message):
-    print(message)
 
-
-def on_error(ws, error):
-    print(error)
-
-
-def on_close(ws):
-    print("### closed ###")
-    
-    
-def on_open(ws,tmp, tmp2):
-    def run(*args):
-        # for i in range(3):
-            # time.sleep(1)
-        ws.send(json.dumps({"message": "Hello "}))
-            # print('in')
-        # while True:
-            # msg = input()
-            # if msg == '-q':
-                # break
-            # ws.send(json.dumps({"message": msg}))
-        time.sleep(1)
-        ws.close()
-        print("thread terminating...")
-
-    thread.start_new_thread(run, ())
 # Create your views here.
 def trigger(PD,MI):
     LO = Line.objects.filter(part=PD,user_id=MI)
+    ws = websocket.create_connection('wss://ncufit.tk/wss/chat/mech1/', sslopt={"cert_reqs": ssl.CERT_NONE}, )
+
+            
     for LOdata in LO:
-        for i in range(10, 0, -1):
+        for i in range(50, 0, -1):
             if Line.objects.filter(part=PD,user_id=MI).first().countdown != -1:
                 LOdata.update(set__countdown=int(i))
                 print(Line.objects.filter(part=PD,user_id=MI).first().countdown)
+                data = {"message": "timer", "part":i, "sid":i}
+                ws.send(json.dumps(data))
+                result = ws.recv()
                 sleep(1)
         if Line.objects.filter(part=PD,user_id=MI).first().countdown != -1:   
             for new in Line.objects.filter(part=LOdata.part):
@@ -70,6 +48,7 @@ def trigger(PD,MI):
             body = "dear {name}, you have been removed from the {device} ಥ_ಥ!".format(
                             name=userData.name, device=PD)
             postNotificationToSingleUser(MI, title, body, "NCUfit LineUp SYS")
+    ws.close()
 
     # do something else here.
 def caltime(sec):
@@ -156,6 +135,43 @@ def leave(request):
                 pass           
             return Response({"message":"did not save"})
     return Response("error")
+def cws(my_id):
+    ws = websocket.create_connection('wss://ncufit.tk/wss/chat/mech1/', sslopt={"cert_reqs": ssl.CERT_NONE}, )
+    while True:
+        
+        sleep(1)
+        
+        all_item = []
+        for partdata in partlist:
+            tmp = Line.objects.filter(part=partdata).count()
+            qstring = "排隊"
+            countdowntime = -1
+            this_part_precedence = 0
+            for tp in Line.objects(part=partdata,user_id=my_id):
+                this_part_precedence = tp.precedence
+            if Line.objects.filter(part=partdata,user_id=my_id).count() > 0:
+                if this_part_precedence == 1:
+                    countdowntime = Line.objects.filter(part=partdata,user_id=my_id).first().countdown
+                    qstring = "到你了!"
+                    lineData = Line.objects.filter(part=partdata,user_id=my_id)[0]
+                    userData = User.objects.filter(myid=my_id)[0]
+                    if lineData.notification == False:
+                        thread = threading.Thread(target=trigger, args = (partdata,my_id))
+                        thread.daemon = True
+                        thread.start()
+                        title = "Your Turn!!"
+                        body = "dear {name}, is your time to enjoy the {device}!".format(
+                                name=userData.name, device=partdata)
+                        postNotificationToSingleUser(my_id, title, body, "NCUfit LineUp SYS")
+                        lineData.update(notification=True)
+                else :
+                    countdowntime = -1
+                    qstring = "等待{x}人".format(x=this_part_precedence-1)
+            all_item.append({"title": partdata,"data": [{ "precedence":this_part_precedence, "item": partdata, "amount": tmp, "user_qstatus":qstring, "countdown":str(countdowntime) }]})
+        # data = {"message": "timer", "part":my_id, "sid":"123"}
+        ws.send(json.dumps(all_item))
+        result = ws.recv()
+    ws.close()
 @api_view(['post', 'GET'])
 def getQstatus(request):
     if request.method == 'POST':
@@ -167,6 +183,9 @@ def getQstatus(request):
         if l != 0:
             latest_uuid = User.objects.filter(myid=my_id)[l-1].uuid
         if User.objects.filter(myid=my_id, uuid=my_uuid).count() > 0 and my_uuid == latest_uuid:
+            # thread = threading.Thread(target=cws, args = (my_id,))
+            # thread.daemon = True
+            # thread.start()
             all_item = []
             for partdata in partlist:
                 tmp = Line.objects.filter(part=partdata).count()
@@ -242,17 +261,17 @@ def GetTimer(request):
 @api_view(['post', 'GET'])
 def forvideo(request):
     if request.method == 'POST':
-        received_json_data=json.loads(request.body)
-        ws = websocket.create_connection('wss://ncufit.tk/wss/chat/456/', sslopt={"cert_reqs": ssl.CERT_NONE}, )
-        print("Sending 'Hello, World'...")
-        data = received_json_data
-        ws.send(json.dumps(data))
-        print("Sent")
-        print("Receiving...")
-        result = ws.recv()
-        print("Received '%s'" % result)
-        ws.close()
-        # my_id = received_json_data['user_id']
+    # received_json_data=json.loads(request.body)
+    # ws = websocket.create_connection('wss://ncufit.tk/wss/chat/456/', sslopt={"cert_reqs": ssl.CERT_NONE}, )
+    # print("Sending 'Hello, World'...")
+    # data = received_json_data
+    # ws.send(json.dumps(data))
+    # print("Sent")
+    # print("Receiving...")
+    # result = ws.recv()
+    # print("Received '%s'" % result)
+    # ws.close()
+    # my_id = received_json_data['user_id']
         # this_part = Line.objects.filter(part=received_json_data['part'])
         # part_to_line_up = Line(part=received_json_data['part'],user_id=my_id,precedence=this_part.count()+1)
         # print(part_to_line_up)
