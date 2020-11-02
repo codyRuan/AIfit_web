@@ -35,6 +35,7 @@ urlpatterns = [
     path('notification/',include('notification.urls')),
     path('', RedirectView.as_view(url='/home/', permanent=True)),
     path('chat/', include('chat.urls')),
+    path('qws/', include('qws.urls')),
 ]
 
 urlpatterns += staticfiles_urlpatterns()

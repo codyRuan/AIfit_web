@@ -53,7 +53,9 @@ INSTALLED_APPS = [
     'postimage',
     'counting',
     'channels',
-    'chat'
+    'chat',
+    'qws'
+    
 ]
 
 MIDDLEWARE = [

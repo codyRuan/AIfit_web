@@ -1,7 +1,7 @@
 from django.shortcuts import render, HttpResponseRedirect
 #from django.http import HttpResponse
 from datetime import datetime
-from lineup.models import Line
+from lineup.models import Line, QRCode_Record
 from counting.models import Counting
 from rest_framework import status
 from rest_framework.decorators import api_view
@@ -14,6 +14,7 @@ from notification.views import postNotificationToSingleUser
 from copy import deepcopy
 import threading
 from time import sleep
+import uuid
 import websocket
 import ssl
 try:
@@ -26,15 +27,21 @@ import time
 # Create your views here.
 def trigger(PD,MI):
     LO = Line.objects.filter(part=PD,user_id=MI)
-    ws = websocket.create_connection('wss://ncufit.tk/wss/chat/mech1/', sslopt={"cert_reqs": ssl.CERT_NONE}, )
-
+    ws = websocket.create_connection('wss://ncufit.tk/wss/ex/mech1/', sslopt={"cert_reqs": ssl.CERT_NONE}, )
+    uid = str(uuid.uuid4())
+    user = User.objects.filter(myid=MI)
+    QRCode_Record(user_id=MI, part=PD, qrcode=uid).save()
+    for usr in user: 
+        usr.update(set__qrcode=uid)
+    
             
     for LOdata in LO:
-        for i in range(50, 0, -1):
+        for i in range(50, -1, -1):
             if Line.objects.filter(part=PD,user_id=MI).first().countdown != -1:
                 LOdata.update(set__countdown=int(i))
                 print(Line.objects.filter(part=PD,user_id=MI).first().countdown)
-                data = {"message": "timer", "part":i, "sid":i}
+                Q_T = {"uid":uid,"timer":i}
+                data = {"message": "QRcode_raw&timer", "part":Q_T, "sid":MI}
                 ws.send(json.dumps(data))
                 result = ws.recv()
                 sleep(1)
@@ -115,7 +122,7 @@ def leave(request):
             this_training.delete()
             Counting.objects.filter(part=received_json_data['part']).delete()
             # websocket
-            ws = websocket.create_connection('wss://ncufit.tk/wss/chat/mech1/', sslopt={"cert_reqs": ssl.CERT_NONE}, )
+            ws = websocket.create_connection('wss://ncufit.tk/wss/ex/mech1/', sslopt={"cert_reqs": ssl.CERT_NONE}, )
             data = {"message": "done", "part":received_json_data['part'], "sid":my_id}
             ws.send(json.dumps(data))
             result = ws.recv()
@@ -135,43 +142,7 @@ def leave(request):
                 pass           
             return Response({"message":"did not save"})
     return Response("error")
-def cws(my_id):
-    ws = websocket.create_connection('wss://ncufit.tk/wss/chat/mech1/', sslopt={"cert_reqs": ssl.CERT_NONE}, )
-    while True:
-        
-        sleep(1)
-        
-        all_item = []
-        for partdata in partlist:
-            tmp = Line.objects.filter(part=partdata).count()
-            qstring = "排隊"
-            countdowntime = -1
-            this_part_precedence = 0
-            for tp in Line.objects(part=partdata,user_id=my_id):
-                this_part_precedence = tp.precedence
-            if Line.objects.filter(part=partdata,user_id=my_id).count() > 0:
-                if this_part_precedence == 1:
-                    countdowntime = Line.objects.filter(part=partdata,user_id=my_id).first().countdown
-                    qstring = "到你了!"
-                    lineData = Line.objects.filter(part=partdata,user_id=my_id)[0]
-                    userData = User.objects.filter(myid=my_id)[0]
-                    if lineData.notification == False:
-                        thread = threading.Thread(target=trigger, args = (partdata,my_id))
-                        thread.daemon = True
-                        thread.start()
-                        title = "Your Turn!!"
-                        body = "dear {name}, is your time to enjoy the {device}!".format(
-                                name=userData.name, device=partdata)
-                        postNotificationToSingleUser(my_id, title, body, "NCUfit LineUp SYS")
-                        lineData.update(notification=True)
-                else :
-                    countdowntime = -1
-                    qstring = "等待{x}人".format(x=this_part_precedence-1)
-            all_item.append({"title": partdata,"data": [{ "precedence":this_part_precedence, "item": partdata, "amount": tmp, "user_qstatus":qstring, "countdown":str(countdowntime) }]})
-        # data = {"message": "timer", "part":my_id, "sid":"123"}
-        ws.send(json.dumps(all_item))
-        result = ws.recv()
-    ws.close()
+
 @api_view(['post', 'GET'])
 def getQstatus(request):
     if request.method == 'POST':
@@ -183,9 +154,7 @@ def getQstatus(request):
         if l != 0:
             latest_uuid = User.objects.filter(myid=my_id)[l-1].uuid
         if User.objects.filter(myid=my_id, uuid=my_uuid).count() > 0 and my_uuid == latest_uuid:
-            # thread = threading.Thread(target=cws, args = (my_id,))
-            # thread.daemon = True
-            # thread.start()
+            
             all_item = []
             for partdata in partlist:
                 tmp = Line.objects.filter(part=partdata).count()
@@ -197,18 +166,21 @@ def getQstatus(request):
                 if Line.objects.filter(part=partdata,user_id=my_id).count() > 0:
                     if this_part_precedence == 1:
                         countdowntime = Line.objects.filter(part=partdata,user_id=my_id).first().countdown
-                        qstring = "到你了!"
                         lineData = Line.objects.filter(part=partdata,user_id=my_id)[0]
                         userData = User.objects.filter(myid=my_id)[0]
-                        if lineData.notification == False:
-                            thread = threading.Thread(target=trigger, args = (partdata,my_id))
-                            thread.daemon = True
-                            thread.start()
-                            title = "Your Turn!!"
-                            body = "dear {name}, is your time to enjoy the {device}!".format(
-                                    name=userData.name, device=partdata)
-                            postNotificationToSingleUser(my_id, title, body, "NCUfit LineUp SYS")
-                            lineData.update(notification=True)
+                        if countdowntime == -1:
+                            qstring = "開始!"
+                        else:
+                            qstring = "到你了!"
+                            if lineData.notification == False:
+                                thread = threading.Thread(target=trigger, args = (partdata,my_id))
+                                thread.daemon = True
+                                thread.start()
+                                title = "Your Turn!!"
+                                body = "dear {name}, is your time to enjoy the {device}!".format(
+                                        name=userData.name, device=partdata)
+                                postNotificationToSingleUser(my_id, title, body, "NCUfit LineUp SYS")
+                                lineData.update(notification=True)
                     else :
                         countdowntime = -1
                         qstring = "等待{x}人".format(x=this_part_precedence-1)
@@ -219,23 +191,28 @@ def getQstatus(request):
 @api_view(['post', 'GET'])
 def StartWorkout(request):
     if request.method == 'POST':
-        received_json_data=json.loads(request.body)
-        my_uuid = received_json_data['uuid']
-        my_id = received_json_data['user_id']
-        this_part = Line.objects.filter(part=received_json_data['part'])
         
-        l = User.objects.filter(myid=my_id).count()
-        if l != 0:
-            latest_uuid = User.objects.filter(myid=my_id)[l-1].uuid                            
-        if User.objects.filter(myid=my_id, uuid=my_uuid).count() > 0 and my_uuid == latest_uuid and Line.objects.filter(part=received_json_data['part'],user_id=my_id).count() > 0:
-            LO = Line.objects.filter(part=received_json_data['part'],user_id=my_id)
+        received_json_data=json.loads(request.body)
+        qrcd = received_json_data['qrcode']
+        qrcd = QRCode_Record.objects.filter(qrcode=received_json_data['qrcode']).first()
+        # my_uuid = received_json_data['uuid']
+        # raw_QRcode = received_json_data['QRcode']
+        # my_id = received_json_data['user_id']
+        # this_part = Line.objects.filter(part=received_json_data['part'])
+        # print(my_id)
+        # print(received_json_data['part'])
+        # l = User.objects.filter(myid=my_id).count()
+        # if l != 0:
+            # latest_uuid = User.objects.filter(myid=my_id)[l-1].uuid                            
+        # if User.objects.filter(myid=my_id, uuid=my_uuid).count() > 0 and my_uuid == latest_uuid and Line.objects.filter(part=received_json_data['part'],user_id=my_id).count() > 0:
+        if Line.objects.filter(part=qrcd.part,user_id=qrcd.user_id).count() > 0:
+            LO = Line.objects.filter(part=qrcd.part,user_id=qrcd.user_id)
             for LOdata in LO:
                 LOdata.update(set__countdown=-1)
                 LOdata.update(set__time=datetime.now())
-            print(Line.objects.filter(part=received_json_data['part'],user_id=my_id).first().countdown)
             # websocket
-            ws = websocket.create_connection('wss://ncufit.tk/wss/chat/mech1/', sslopt={"cert_reqs": ssl.CERT_NONE}, )
-            data = {"message": "start", "part":received_json_data['part'], "sid":my_id}
+            ws = websocket.create_connection('wss://ncufit.tk/wss/ex/mech1/', sslopt={"cert_reqs": ssl.CERT_NONE}, )
+            data = {"message": "start_workout", "part":qrcd.part, "sid":qrcd.user_id}
             ws.send(json.dumps(data))
             result = ws.recv()
             ws.close()
@@ -262,7 +239,7 @@ def GetTimer(request):
 def forvideo(request):
     if request.method == 'POST':
     # received_json_data=json.loads(request.body)
-    # ws = websocket.create_connection('wss://ncufit.tk/wss/chat/456/', sslopt={"cert_reqs": ssl.CERT_NONE}, )
+    # ws = websocket.create_connection('wss://ncufit.tk/wss/ex/456/', sslopt={"cert_reqs": ssl.CERT_NONE}, )
     # print("Sending 'Hello, World'...")
     # data = received_json_data
     # ws.send(json.dumps(data))

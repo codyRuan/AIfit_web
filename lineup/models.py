@@ -18,3 +18,15 @@ class Line(Document):
     notification = BooleanField(default=False)
     gp = StringField()
     ts = StringField()
+    verified = IntField(default=0)
+
+class QRCode_Record(Document):
+
+    meta = {
+        'collection': 'qrcode'
+    }
+    time = DateTimeField(default=datetime.datetime.now())
+    part = StringField()
+    user_id = StringField()
+    qrcode = StringField()
+    

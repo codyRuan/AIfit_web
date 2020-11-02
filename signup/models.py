@@ -12,4 +12,5 @@ class User(Document):
     name = StringField()
     uuid = StringField()
     device_token = StringField()
+    qrcode = StringField()
     
